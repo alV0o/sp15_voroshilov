@@ -19,8 +19,15 @@
 #define DEFAULT_BUFLEN 512
 
 
+volatile int numOfUser = 1;
 
 DWORD WINAPI ClientSocketThread(LPVOID lpParam) {
+	
+	int num = numOfUser;
+	numOfUser++;
+
+	std::cout <<"[SERVER] user \"User" << num << "\" has joined" << std::endl;
+
 	SOCKET ClientSocket = (SOCKET)lpParam;
 
 	char recvbuf[DEFAULT_BUFLEN];
@@ -57,8 +64,15 @@ DWORD WINAPI ClientSocketThread(LPVOID lpParam) {
 	if (iResult == SOCKET_ERROR) {
 		std::cout << "shutdown failed: " << WSAGetLastError() << std::endl;
 	}
+
+
+	std::cout << "[SERVER] user \"User" << num << "\" left the chat" << std::endl;
+
 	closesocket(ClientSocket);
+
+	return 0;
 }
+
 
 
 int main()

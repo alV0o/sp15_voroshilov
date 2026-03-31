@@ -81,10 +81,12 @@ int main()
 
 		char sendbuf[256];
 		std::cout << "> ";
-		std::cin >> sendbuf;
+		std::cin >>sendbuf;
 		std::cout << std::endl;
 		//system("cls");
 		char recvbuf[DEFAULT_BUFLEN];
+
+		if (strcmp(sendbuf, "/exit") == 0) break;
 
 		iResult = 0;
 
