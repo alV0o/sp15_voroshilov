@@ -1,0 +1,7 @@
+﻿  sp15_voroshilov_server.cpp
+  Создание кода
+  Previous IPDB not found, fall back to full compilation.
+  All 84 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+D:\ProgrammingAll\3kurs\sp15_voroshilov\sp15_voroshilov\sp15_voroshilov_server.cpp(61): warning C4715: ClientSocketThread: значение возвращается не при всех путях выполнения
+  Создание кода завершено
+  sp15_voroshilov.vcxproj -> D:\ProgrammingAll\3kurs\sp15_voroshilov\x64\Release\sp15_voroshilov.exe
