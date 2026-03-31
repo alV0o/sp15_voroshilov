@@ -77,22 +77,26 @@ int main()
 
 	int recvbuflen = DEFAULT_BUFLEN;
 
-	const char* sendbuf = "this is a test";
-	char recvbuf[DEFAULT_BUFLEN];
+	while (true) {
 
-	iResult = 0;
+		char sendbuf[256];
+		std::cout << "> ";
+		std::cin >> sendbuf;
+		std::cout << std::endl;
+		//system("cls");
+		char recvbuf[DEFAULT_BUFLEN];
 
-	iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
-	if (iResult == SOCKET_ERROR) {
-		std::cout << "send failed :" << WSAGetLastError() << std::endl;
-		closesocket(ConnectSocket);
-		WSACleanup();
-		return 1;
-	}
+		iResult = 0;
 
-	std::cout << "text sent:" << sendbuf << std::endl;
+		iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
+		if (iResult == SOCKET_ERROR) {
+			std::cout << "send failed :" << WSAGetLastError() << std::endl;
+			closesocket(ConnectSocket);
+			break;
+		}
 
-	do {
+		std::cout << "text sent:" << sendbuf << std::endl;
+
 		iResult = recv(ConnectSocket, recvbuf, recvbuflen, 0);
 		if (iResult > 0) {
 			recvbuf[iResult] = '\0';
@@ -101,8 +105,9 @@ int main()
 		else if (iResult == 0)
 			std::cout << "Connection closed" << std::endl;
 		else
-			std::cout << "recv failed: " << WSAGetLastError()<< std::endl;
-	} while (iResult > 0);
+			std::cout << "recv failed: " << WSAGetLastError() << std::endl;
+	}
+
 
 	iResult = shutdown(ConnectSocket, SD_SEND);
 	if (iResult == SOCKET_ERROR) {

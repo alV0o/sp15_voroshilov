@@ -11,6 +11,7 @@
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <stdio.h>
+#include <vector>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -18,6 +19,46 @@
 #define DEFAULT_BUFLEN 512
 
 
+
+DWORD WINAPI ClientSocketThread(LPVOID lpParam) {
+	SOCKET ClientSocket = (SOCKET)lpParam;
+
+	char recvbuf[DEFAULT_BUFLEN];
+	int iResult;
+	int iSendResult;
+	int recvbuflen = DEFAULT_BUFLEN;
+
+	do {
+		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
+		if (iResult > 0) {
+
+			recvbuf[iResult] = '\0';
+
+			std::cout << "Bytes received: " << recvbuf << std::endl;
+
+			iSendResult = send(ClientSocket, recvbuf, iResult, 0);
+			if (iSendResult == SOCKET_ERROR) {
+				std::cout << "send failed: " << WSAGetLastError() << std::endl;
+				closesocket(ClientSocket);
+				break;
+			}
+			std::cout << "Bytes sent: " << recvbuf << std::endl;
+		}
+		else if (iResult == 0) std::cout << "Connection closing..." << std::endl;
+		else {
+			std::cout << "recv failed:" << WSAGetLastError() << std::endl;
+			closesocket(ClientSocket);
+			break;
+		}
+
+	} while (iResult > 0);
+
+	iResult = shutdown(ClientSocket, SD_SEND);
+	if (iResult == SOCKET_ERROR) {
+		std::cout << "shutdown failed: " << WSAGetLastError() << std::endl;
+	}
+	closesocket(ClientSocket);
+}
 
 
 int main()
@@ -73,62 +114,38 @@ int main()
 		return 1;
 	}
 
-	SOCKET ClientSocket;
-	//!!!!
-	//Обратите внимание, что этот базовый пример очень прост и не использует несколько потоков. В примере также прослушивается и принимается только одно подключение.
-	//!!!!
-	ClientSocket = accept(ListenSocket, NULL, NULL);
-	if (ClientSocket == INVALID_SOCKET) {
-		std::cout << "accept failed: "<< WSAGetLastError()<<std::endl;
-		closesocket(ListenSocket);
-		WSACleanup();
-		return 1;
-	}
+	std::vector<HANDLE*> hThreads;
 
-	char recvbuf[DEFAULT_BUFLEN];
-	iResult = 0;
-	int iSendResult;
-	int recvbuflen = DEFAULT_BUFLEN;
-
-	do {
-		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
-		if (iResult > 0) {
-			
-			recvbuf[iResult] = '\0';
-
-			std::cout << "Bytes received: " << recvbuf << std::endl;
-
-			iSendResult = send(ClientSocket, recvbuf, iResult, 0);
-			if (iSendResult == SOCKET_ERROR) {
-				std::cout << "send failed: " << WSAGetLastError() << std::endl;
-				closesocket(ClientSocket);
-				WSACleanup();
-				return 1;
-			}
-			std::cout << "Bytes sent: " << recvbuf << std::endl;
-		}
-		else if (iResult == 0) std::cout << "Connection closing..." << std::endl;
-		else {
-			std::cout << "recv failed:" << WSAGetLastError() << std::endl;
-			closesocket(ClientSocket);
+	while (true) {
+		SOCKET ClientSocket;
+		//!!!!
+		//Обратите внимание, что этот базовый пример очень прост и не использует несколько потоков. В примере также прослушивается и принимается только одно подключение.
+		//!!!!
+		ClientSocket = accept(ListenSocket, NULL, NULL);
+		if (ClientSocket == INVALID_SOCKET) {
+			std::cout << "accept failed: " << WSAGetLastError() << std::endl;
+			closesocket(ListenSocket);
 			WSACleanup();
 			return 1;
 		}
 
-	} while (iResult > 0);
+		HANDLE hThread;
+		DWORD IDThread;
 
-	iResult = shutdown(ClientSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
-		std::cout << "shutdown failed: " << WSAGetLastError() << std::endl;
-		closesocket(ClientSocket);
-		WSACleanup();
-		return 1;
+		hThread = CreateThread(NULL, NULL, ClientSocketThread, (LPVOID)ClientSocket, NULL, &IDThread);
+		if (hThread == NULL)
+			return GetLastError();
+
+		hThreads.push_back(&hThread);
 	}
 
-	closesocket(ClientSocket);
 	WSACleanup();
 
-	//closesocket(ListenSocket);
+	closesocket(ListenSocket);
+
+	for (int i = 0; i < hThreads.size(); i++) {
+		CloseHandle(hThreads[i]);
+	}
 
 	return 0;
 }

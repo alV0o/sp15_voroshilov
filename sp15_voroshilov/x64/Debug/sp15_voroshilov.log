@@ -1,2 +1,3 @@
 ﻿  sp15_voroshilov_server.cpp
-  sp15_voroshilov.vcxproj -> C:\voroshilov\sp15_voroshilov\x64\Debug\sp15_voroshilov.exe
+D:\ProgrammingAll\3kurs\sp15_voroshilov\sp15_voroshilov\sp15_voroshilov_server.cpp(61,1): warning C4715: ClientSocketThread: значение возвращается не при всех путях выполнения
+  sp15_voroshilov.vcxproj -> D:\ProgrammingAll\3kurs\sp15_voroshilov\x64\Debug\sp15_voroshilov.exe
