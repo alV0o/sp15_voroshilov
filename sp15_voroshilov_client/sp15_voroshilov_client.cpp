@@ -12,26 +12,56 @@
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <stdio.h>
+#include <vector>
 
 #pragma comment(lib, "Ws2_32.lib")
 
 #define DEFAULT_PORT "27015"
 #define DEFAULT_BUFLEN 512
 
-int main()
-{
-	WSADATA wsaData;
-	int iResult;
+CRITICAL_SECTION cs;
 
-	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+DWORD WINAPI RecvThread(LPVOID lpParam) {
+	
+	SOCKET ConnectSocket = (SOCKET)lpParam;
+
+	int iResult;
+	char recvbuf[DEFAULT_BUFLEN];
+	int recvbuflen = DEFAULT_BUFLEN;
+
+	while (true) {
+		iResult = recv(ConnectSocket, recvbuf, recvbuflen, 0);
+		EnterCriticalSection(&cs);
+		if (iResult > 0) {
+			recvbuf[iResult] = '\0';
+			std::cout << "\r" << recvbuf << "> ";
+		}
+		else if (iResult == 0) {
+			std::cout << "[SERVER] Connection closed" << std::endl;
+			LeaveCriticalSection(&cs);
+			break;
+		}
+		else {
+			std::cout << "[SERVER] recv failed: " << WSAGetLastError() << std::endl;
+			LeaveCriticalSection(&cs);
+			break;
+		}
+		LeaveCriticalSection(&cs);
+	}
+	return 0;
+}
+
+
+int InitializeWinSock(WSADATA *wsaData, int iResult, SOCKET *ConnectSocket) {
+	iResult = WSAStartup(MAKEWORD(2, 2), wsaData);
 	if (iResult != 0) {
 		std::cout << "WSAStartup failed " << iResult << std::endl;
 		return 1;
 	}
 
-	struct addrinfo *result = NULL, 
-					*ptr = NULL,
-					hints;
+	struct addrinfo* result = NULL,
+		* ptr = NULL,
+		hints;
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
@@ -41,6 +71,7 @@ int main()
 	char ipaddress[256];
 	std::cout << "give me ip: ";
 	std::cin >> ipaddress;
+	std::cin.ignore();
 
 	iResult = getaddrinfo(ipaddress, DEFAULT_PORT, &hints, &result);
 	if (iResult != 0) {
@@ -49,45 +80,73 @@ int main()
 		return 1;
 	}
 
-	SOCKET ConnectSocket = INVALID_SOCKET;
+	*ConnectSocket = INVALID_SOCKET;
 
 	ptr = result;
-	ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+	*ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 
-	if (ConnectSocket == INVALID_SOCKET) {
+	if (*ConnectSocket == INVALID_SOCKET) {
 		std::cout << "Error at socket(): " << WSAGetLastError() << std::endl;
 		freeaddrinfo(result);
 		WSACleanup();
 		return 1;
 	}
 
-	iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+	iResult = connect(*ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 	if (iResult == SOCKET_ERROR) {
-		closesocket(ConnectSocket);
-		ConnectSocket = INVALID_SOCKET;
+		closesocket(*ConnectSocket);
+		*ConnectSocket = INVALID_SOCKET;
 	}
 
 	freeaddrinfo(result);
 
-	if (ConnectSocket == INVALID_SOCKET) {
+	if (*ConnectSocket == INVALID_SOCKET) {
 		std::cout << "Unable to connect to server!" << std::endl;
 		WSACleanup();
 		return 1;
 	}
 
-	int recvbuflen = DEFAULT_BUFLEN;
+	return 0;
+}
+
+
+int main()
+{
+	WSADATA wsaData;
+	int iResult = 0;
+	SOCKET ConnectSocket;
+	
+	InitializeCriticalSection(&cs);
+
+	int res = InitializeWinSock(&wsaData, iResult, &ConnectSocket);
+	if (res != 0) return 1;
+
+	char nickname[256];
+	std::cout << "Enter your nickname: ";
+	std::cin >> nickname;
+	std::cin.ignore();
+	iResult = 0;
+
+	iResult = send(ConnectSocket, nickname, (int)strlen(nickname), 0);
+	if (iResult == SOCKET_ERROR) {
+		std::cout << "send failed :" << WSAGetLastError() << std::endl;
+		closesocket(ConnectSocket);
+		return 1;
+	}
+
+	HANDLE hThread;
+	DWORD IDThread;
+
+	hThread = CreateThread(NULL, NULL, RecvThread, (LPVOID)ConnectSocket, NULL, &IDThread);
+	if (hThread == NULL)
+		return GetLastError();
 
 	while (true) {
 
 		char sendbuf[256];
 		std::cout << "> ";
-		std::cin >>sendbuf;
-		std::cout << std::endl;
-		//system("cls");
-		char recvbuf[DEFAULT_BUFLEN];
-
-		if (strcmp(sendbuf, "/exit") == 0) break;
-
+		std::cin.getline(sendbuf, 256);
+		
 		iResult = 0;
 
 		iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
@@ -97,17 +156,7 @@ int main()
 			break;
 		}
 
-		std::cout << "text sent:" << sendbuf << std::endl;
-
-		iResult = recv(ConnectSocket, recvbuf, recvbuflen, 0);
-		if (iResult > 0) {
-			recvbuf[iResult] = '\0';
-			std::cout << "text received: " << recvbuf << std::endl;
-		}
-		else if (iResult == 0)
-			std::cout << "Connection closed" << std::endl;
-		else
-			std::cout << "recv failed: " << WSAGetLastError() << std::endl;
+		if (strcmp(sendbuf, "/exit") == 0) break;
 	}
 
 
@@ -119,6 +168,10 @@ int main()
 		return 1;
 	}
 	
+	DeleteCriticalSection(&cs);
+
+	CloseHandle(hThread);
+
 	closesocket(ConnectSocket);
 	WSACleanup();
 

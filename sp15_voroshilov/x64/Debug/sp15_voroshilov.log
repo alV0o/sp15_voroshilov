@@ -1,3 +1,4 @@
 ﻿  sp15_voroshilov_server.cpp
-D:\ProgrammingAll\3kurs\sp15_voroshilov\sp15_voroshilov\sp15_voroshilov_server.cpp(61,1): warning C4715: ClientSocketThread: значение возвращается не при всех путях выполнения
+D:\ProgrammingAll\3kurs\sp15_voroshilov\sp15_voroshilov\sp15_voroshilov_server.cpp(32,66): warning C4267: аргумент: преобразование из "size_t" в "int"; возможна потеря данных
+D:\ProgrammingAll\3kurs\sp15_voroshilov\sp15_voroshilov\sp15_voroshilov_server.cpp(81,71): warning C4267: аргумент: преобразование из "size_t" в "int"; возможна потеря данных
   sp15_voroshilov.vcxproj -> D:\ProgrammingAll\3kurs\sp15_voroshilov\x64\Debug\sp15_voroshilov.exe

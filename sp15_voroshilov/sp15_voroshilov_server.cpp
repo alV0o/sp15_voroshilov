@@ -12,6 +12,7 @@
 #include <iphlpapi.h>
 #include <stdio.h>
 #include <vector>
+#include <string>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -20,13 +21,26 @@
 
 
 volatile int numOfUser = 1;
+std::vector<SOCKET> sockets;
+std::vector<std::string> users;
+
+void SendToUsers(SOCKET ClientSocket, std::string message) {
+	int iSendResult;
+	for (int i = 0; i < sockets.size(); i++) {
+
+		if (sockets[i] != ClientSocket) {
+			iSendResult = send(sockets[i], message.c_str(), message.length(), 0);
+			if (iSendResult == SOCKET_ERROR) {
+				std::cout << "send failed: " << WSAGetLastError() << std::endl;
+				closesocket(sockets[i]);
+				break;
+			}
+		}
+	}
+}
+
 
 DWORD WINAPI ClientSocketThread(LPVOID lpParam) {
-	
-	int num = numOfUser;
-	numOfUser++;
-
-	std::cout <<"[SERVER] user \"User" << num << "\" has joined" << std::endl;
 
 	SOCKET ClientSocket = (SOCKET)lpParam;
 
@@ -34,39 +48,69 @@ DWORD WINAPI ClientSocketThread(LPVOID lpParam) {
 	int iResult;
 	int iSendResult;
 	int recvbuflen = DEFAULT_BUFLEN;
+	char nickname[DEFAULT_BUFLEN];
 
-	do {
-		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
-		if (iResult > 0) {
+	iResult = recv(ClientSocket, nickname, recvbuflen, 0);
+	if (iResult > 0) {
 
-			recvbuf[iResult] = '\0';
+		nickname[iResult] = '\0';
 
-			std::cout << "Bytes received: " << recvbuf << std::endl;
+		users.push_back((std::string)nickname);
 
-			iSendResult = send(ClientSocket, recvbuf, iResult, 0);
-			if (iSendResult == SOCKET_ERROR) {
-				std::cout << "send failed: " << WSAGetLastError() << std::endl;
-				closesocket(ClientSocket);
-				break;
+		std::cout << "[SERVER] user \"" << nickname << "\" has joined" << std::endl;
+
+
+		std::string message = "[SERVER] user \"" + (std::string)nickname + "\" has joined\n";
+
+		SendToUsers(ClientSocket, message);
+
+		do {
+			iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
+			if (iResult > 0) {
+
+				recvbuf[iResult] = '\0';
+
+				std::cout << "[" << nickname << "] " << recvbuf << std::endl;
+				
+				if ((std::string)recvbuf == "/users") {
+
+					for (int i = 0; i < users.size(); i++) {
+
+						message = "[SERVER] " + users[i] + "\n";
+
+						iSendResult = send(ClientSocket, message.c_str(), message.length(), 0);
+						if (iSendResult == SOCKET_ERROR) {
+							std::cout << "send failed: " << WSAGetLastError() << std::endl;
+							closesocket(ClientSocket);
+							break;
+						}
+					}
+				}
+				else if ((std::string)recvbuf != "/exit") {
+
+					message = "[" + (std::string)nickname + "] " + recvbuf +"\n";
+
+					SendToUsers(ClientSocket, message);
+				}
+
 			}
-			std::cout << "Bytes sent: " << recvbuf << std::endl;
-		}
-		else if (iResult == 0) std::cout << "Connection closing..." << std::endl;
-		else {
-			std::cout << "recv failed:" << WSAGetLastError() << std::endl;
-			closesocket(ClientSocket);
-			break;
+
+		} while (iResult > 0);
+
+		iResult = shutdown(ClientSocket, SD_SEND);
+		if (iResult == SOCKET_ERROR) {
+			std::cout << "[SERVER] shutdown for " << nickname << " failed: " << WSAGetLastError() << std::endl;
 		}
 
-	} while (iResult > 0);
+		sockets.erase(std::remove(sockets.begin(), sockets.end(), ClientSocket));
+		users.erase(std::remove(users.begin(), users.end(), nickname));
 
-	iResult = shutdown(ClientSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
-		std::cout << "shutdown failed: " << WSAGetLastError() << std::endl;
+		std::cout << "[SERVER] user \"" << nickname << "\" left the chat" << std::endl;
+		message = "[SERVER] user \"" + (std::string)nickname + "\" left the chat\n";
+
+		SendToUsers(ClientSocket, message);
 	}
 
-
-	std::cout << "[SERVER] user \"User" << num << "\" left the chat" << std::endl;
 
 	closesocket(ClientSocket);
 
@@ -151,6 +195,7 @@ int main()
 			return GetLastError();
 
 		hThreads.push_back(&hThread);
+		sockets.push_back(ClientSocket);
 	}
 
 	WSACleanup();
