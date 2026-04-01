@@ -70,7 +70,10 @@ DWORD WINAPI ClientSocketThread(LPVOID lpParam) {
 
 				recvbuf[iResult] = '\0';
 
-				std::cout << "[" << nickname << "] " << recvbuf << std::endl;
+				if ((std::string)recvbuf == "/spam") {
+					std::cout << "[SERVER] \"" << nickname <<"\" spamming" << std::endl;
+				}
+				else std::cout << "[" << nickname << "] " << recvbuf << std::endl;
 				
 				if ((std::string)recvbuf == "/users") {
 
@@ -86,7 +89,7 @@ DWORD WINAPI ClientSocketThread(LPVOID lpParam) {
 						}
 					}
 				}
-				else if ((std::string)recvbuf != "/exit") {
+				else if ((std::string)recvbuf != "/exit" && (std::string)recvbuf != "/spam") {
 
 					message = "[" + (std::string)nickname + "] " + recvbuf +"\n";
 
@@ -104,6 +107,7 @@ DWORD WINAPI ClientSocketThread(LPVOID lpParam) {
 
 		sockets.erase(std::remove(sockets.begin(), sockets.end(), ClientSocket));
 		users.erase(std::remove(users.begin(), users.end(), nickname));
+
 
 		std::cout << "[SERVER] user \"" << nickname << "\" left the chat" << std::endl;
 		message = "[SERVER] user \"" + (std::string)nickname + "\" left the chat\n";

@@ -141,12 +141,30 @@ int main()
 	if (hThread == NULL)
 		return GetLastError();
 
+	int tick = 0;
+
 	while (true) {
 
 		char sendbuf[256];
 		std::cout << "> ";
 		std::cin.getline(sendbuf, 256);
 		
+		if (sendbuf[0] == '/') {
+			if (strcmp(sendbuf, "/exit") != 0 && strcmp(sendbuf, "/users") != 0) {
+				std::cout << "unknown command" << std::endl;
+				continue;
+			}
+		}
+
+		bool isSpamming = false;
+		int temp = GetTickCount64();
+		if ((temp - tick) < 200) {
+			std::cout << "Dont spam!" << std::endl;
+			isSpamming = true;
+			strcpy_s(sendbuf, "/spam");
+		}
+		tick = temp;
+
 		iResult = 0;
 
 		iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
@@ -155,7 +173,11 @@ int main()
 			closesocket(ConnectSocket);
 			break;
 		}
-
+		
+		if (isSpamming) {
+			Sleep(1000);
+			std::cout << "You are free!" << std::endl;
+		}
 		if (strcmp(sendbuf, "/exit") == 0) break;
 	}
 
